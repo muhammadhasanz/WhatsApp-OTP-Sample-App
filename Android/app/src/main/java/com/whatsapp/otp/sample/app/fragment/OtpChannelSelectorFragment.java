@@ -10,6 +10,7 @@ import androidx.fragment.app.Fragment;
 import androidx.navigation.NavController;
 import androidx.navigation.NavOptions;
 import androidx.navigation.Navigation;
+import com.whatsapp.otp.client.WaIntentHandler;
 import com.whatsapp.otp.common.WaLogger;
 import com.whatsapp.otp.sample.R;
 import com.whatsapp.otp.sample.app.fragment.data.PhoneNumberHolder;
@@ -17,7 +18,9 @@ import com.whatsapp.otp.sample.app.otp.WhatsAppOtpIntentHandler;
 import com.whatsapp.otp.sample.app.signature.AppSignatureRetriever;
 import com.whatsapp.otp.sample.databinding.FragmentOtpSelectChannelBinding;
 import dagger.hilt.android.AndroidEntryPoint;
+import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import javax.inject.Inject;
 
 
@@ -31,6 +34,8 @@ public class OtpChannelSelectorFragment extends Fragment {
 
   @Inject
   WhatsAppOtpIntentHandler whatsAppOtpIntentHandler;
+
+  @Inject Set<Function<Context, View>> channelSelectorPlugins;
 
   private FragmentOtpSelectChannelBinding binding;
 
@@ -46,13 +51,35 @@ public class OtpChannelSelectorFragment extends Fragment {
   public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
     super.onViewCreated(view, savedInstanceState);
     Runnable onSuccessHandler = () -> navigateToCodeInputScreen(savedInstanceState);
+    handleWhatsAppInstalledCheck();
     binding.otpGenerateErrorMessageId.setVisibility(View.INVISIBLE);
     binding.requestOtpButtonId.setOnClickListener(currentView -> {
       sendOtp(onSuccessHandler,
           this::errorMessageConsumer);
     });
+    channelSelectorPlugins.forEach(plugin -> binding.plugins.addView(plugin.apply(getContext())));
     String signatures = String.join("/", appSignatureRetriever.getAppSignatures());
     binding.hashSignatureValueId.setText(signatures);
+  }
+
+  @Override
+  public void onResume() {
+    super.onResume();
+    handleWhatsAppInstalledCheck();
+  }
+
+  private void handleWhatsAppInstalledCheck() {
+    boolean whatsAppInstalled = WaIntentHandler.getNewInstance().isWhatsAppInstalled(getContext());
+    if (!whatsAppInstalled) {
+      binding.whatsAppInstalledMessage.setText(R.string.whatsapp_is_not_installed_on_this_device);
+      binding.whatsAppInstalledMessage.setVisibility(View.VISIBLE);
+      binding.WhatsAppSelectorId.setVisibility(View.GONE);
+      binding.requestOtpButtonId.setEnabled(false);
+    } else {
+      binding.whatsAppInstalledMessage.setVisibility(View.GONE);
+      binding.WhatsAppSelectorId.setVisibility(View.VISIBLE);
+      binding.requestOtpButtonId.setEnabled(true);
+    }
   }
 
   private void navigateToCodeInputScreen(@androidx.annotation.Nullable Bundle savedInstanceState) {
