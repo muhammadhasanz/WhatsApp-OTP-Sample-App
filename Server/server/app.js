@@ -121,7 +121,7 @@ app.get('/otp/:phone_number', async (req, res) => {
     template: {
       name: templateName,
       language: {
-        code: "en_US"
+        code: "id"
       },
       components: [
         {
